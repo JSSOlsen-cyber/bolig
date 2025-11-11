@@ -118,10 +118,32 @@ def beregn_skattefradrag(rentekostnad):
     return rentekostnad * SKATTESATS_RENTEFRADRAG
 
 def beregn_belastningsgrad(boligutgifter, nettoinntekt):
-    """Beregn belastningsgrad som prosent av nettoinntekt"""
+    """
+    Beregn belastningsgrad som prosent av nettoinntekt.
+
+    Dette er den vanlige beregningen som banker bruker:
+    Boligutgifter (før skattefradrag) / Nettoinntekt (før skattefradrag)
+
+    Dette reflekterer faktisk kontantstrøm, siden du betaler full kostnad
+    hver måned og kun får skattefordelen gjennom høyere nettoinntekt senere.
+    """
     if nettoinntekt == 0:
         return 0
     return (boligutgifter / nettoinntekt) * 100
+
+def beregn_effektiv_belastning(boligutgifter, nettoinntekt, skattefradrag_mnd):
+    """
+    Beregn effektiv belastningsgrad etter skattefordel.
+
+    Dette viser den langsiktige økonomiske belastningen når skattefradraget
+    er tatt i betraktning (enten gjennom justering av skattekort eller
+    ved skatteoppgjør).
+
+    Beregning: Boligutgifter (før fradrag) / (Nettoinntekt + skattefradrag)
+    """
+    if nettoinntekt == 0:
+        return 0
+    return (boligutgifter / (nettoinntekt + skattefradrag_mnd)) * 100
 
 @st.cache_data
 def generer_renteprognose(basis_rente, prognose_type="norges_bank"):
@@ -251,21 +273,23 @@ with tab1:
     
     with col1:
         boligpris = st.number_input(
-            "Boligpris (kr)", 
-            min_value=500000, 
-            max_value=15000000, 
-            value=4500000, 
+            "Boligpris (kr)",
+            min_value=500000,
+            max_value=15000000,
+            value=4500000,
             step=100000,
-            help="Total kjøpesum for boligen"
+            help="Total kjøpesum for boligen",
+            key="boligpris"
         )
         
         egenkapital = st.number_input(
-            "Egenkapital (kr)", 
-            min_value=0, 
-            max_value=boligpris, 
-            value=1300000, 
+            "Egenkapital (kr)",
+            min_value=0,
+            max_value=boligpris,
+            value=1300000,
             step=50000,
-            help="Minimum 15% anbefales"
+            help="Minimum 15% anbefales",
+            key="egenkapital"
         )
         
         egenkapital_prosent = (egenkapital / boligpris) * 100
@@ -291,8 +315,9 @@ with tab1:
                     f"Egenkapital fra Thale (kr)",
                     min_value=0,
                     max_value=egenkapital,
-                    value=int(egenkapital * 0.6),
-                    step=10000
+                    value=int(egenkapital * 0.4),
+                    step=10000,
+                    key="egenkapital_a"
                 )
                 egenkapital_b = egenkapital - egenkapital_a
                 st.info(f"Egenkapital fra Jonas: {egenkapital_b:,.0f} kr")
@@ -309,29 +334,32 @@ with tab1:
 
     with col2:
         rente = st.number_input(
-            "Rente (%)", 
-            min_value=0.0, 
-            max_value=10.0, 
-            value=5.24, 
+            "Rente (%)",
+            min_value=0.0,
+            max_value=10.0,
+            value=4.99,
             step=0.1,
-            help="Nominell rente på boliglånet"
+            help="Nominell rente på boliglånet",
+            key="rente"
         )
-        
+
         nedbetalingstid = st.number_input(
-            "Nedbetalingstid (år)", 
-            min_value=5, 
-            max_value=30, 
-            value=25, 
-            step=1
+            "Nedbetalingstid (år)",
+            min_value=5,
+            max_value=30,
+            value=25,
+            step=1,
+            key="nedbetalingstid"
         )
-        
+
         felleskostnader = st.number_input(
-            "Felleskostnader (kr/mnd)", 
-            min_value=0, 
-            max_value=10000, 
-            value=3500, 
+            "Felleskostnader (kr/mnd)",
+            min_value=0,
+            max_value=10000,
+            value=3500,
             step=500,
-            help="Månedlige felleskostnader/kommunale avgifter"
+            help="Månedlige felleskostnader/kommunale avgifter",
+            key="felleskostnader"
         )
     
     # Beregn lånebeløp og omkostninger
@@ -364,7 +392,7 @@ with tab2:
             "Netto månedslønn (kr)", 
             min_value=0, 
             max_value=3000000, 
-            value=37500, 
+            value=37900, 
             step=1000,
             key="brutto_a"
         )
@@ -384,7 +412,7 @@ with tab2:
             "Netto månedsinntekt (kr)", 
             min_value=0, 
             max_value=3000000, 
-            value=53000, 
+            value=58500, 
             step=1000,
             key="brutto_b"
         )
@@ -408,48 +436,47 @@ with tab2:
     custom_split = None
     if fordeling_type == "Egendefinert":
         custom_split = st.slider(
-            f"Andel for {navn_a} (%)", 
-            min_value=0, 
-            max_value=100, 
-            value=50, 
-            step=5
+            f"Andel for {navn_a} (%)",
+            min_value=0,
+            max_value=100,
+            value=50,
+            step=5,
+            key="custom_split"
         )
         st.info(f"{navn_a}: {custom_split}% | {navn_b}: {100-custom_split}%")
     
     # Beregninger
     terminbelop = beregn_terminbelop(laanebelop, rente, nedbetalingstid)
-    
+
     # Beregn rentekostnad for første år (forenklet)
     rentekostnad_mnd = (laanebelop * (rente / 100)) / 12
     avdrag_mnd = terminbelop - rentekostnad_mnd
     skattefradrag_mnd = beregn_skattefradrag(rentekostnad_mnd)
-    
-    # Total månedlig kostnad etter skattefradrag
-    total_mnd_kostnad = terminbelop + felleskostnader - skattefradrag_mnd
 
-    kostnad_før_skattefradrag = terminbelop + felleskostnader
+    # Total månedlig kostnad (faktisk utbetaling)
+    total_mnd_kostnad = terminbelop + felleskostnader
 
-    # fordelkostnad_før_skattefradrag = terminbelop + felleskostnader
-    kostnad_før_skattefradrag_a, kostnad_før_skattefradrag_b = beregn_fordeling(
-        kostnad_før_skattefradrag,
+    # Fordel kostnadene (før skattefradrag - dette er faktisk utbetaling)
+    kostnad_a, kostnad_b = beregn_fordeling(
+        total_mnd_kostnad,
         brutto_aar_a,
         brutto_aar_b,
         fordeling_type,
         custom_split
     )
 
-    # Fordel kostnadene
-    kostnad_a, kostnad_b = beregn_fordeling(
-        total_mnd_kostnad, 
-        brutto_aar_a, 
-        brutto_aar_b, 
+    # Fordel skattefradrag
+    skattefradrag_a, skattefradrag_b = beregn_fordeling(
+        skattefradrag_mnd,
+        brutto_aar_a,
+        brutto_aar_b,
         fordeling_type,
         custom_split
     )
     
     # Vis fordelingsresultat
     st.subheader("📊 Resultat av fordeling")
-    
+
     col1, col2, col3 = st.columns([1, 2, 1])
     
     with col2:
@@ -476,48 +503,65 @@ with tab2:
     col1, col2 = st.columns(2)
     with col1:
         st.markdown(f"### 👤 {navn_a}")
+
+        # Beregn begge typer belastningsgrad
         belastning_a = beregn_belastningsgrad(kostnad_a, netto_mnd_a)
-        disponibel_a = netto_mnd_a - kostnad_a
-        belastning_uten_fradrag_a = beregn_belastningsgrad(kostnad_før_skattefradrag_a, netto_mnd_a)
-        
+        effektiv_belastning_a = beregn_effektiv_belastning(kostnad_a, netto_mnd_a, skattefradrag_a)
+        disponibel_før_skatt_a = netto_mnd_a - kostnad_a
+        disponibel_etter_skatt_a = netto_mnd_a + skattefradrag_a - kostnad_a
+
         metrics_col1, metrics_col2 = st.columns(2)
         with metrics_col1:
-            st.metric("Kostnad før skattefradrag", f"{kostnad_før_skattefradrag_a:,.0f} kr")
-            st.metric("Skattefradrag", f"{skattefradrag_mnd * (kostnad_a / total_mnd_kostnad):,.0f} kr")
-            st.metric("Månedlig kostnad", f"{kostnad_a:,.0f} kr")
-        with metrics_col2:
-            st.metric("Disponibelt", f"{disponibel_a:,.0f} kr")
-            st.metric("Belastning uten fradrag", f"{belastning_uten_fradrag_a:.1f}%",
-                     delta="God" if belastning_uten_fradrag_a < 30 else "Høy" if belastning_uten_fradrag_a < 35 else "Kritisk")
+            st.metric("Månedlig kostnad", f"{kostnad_a:,.0f} kr",
+                     help="Dette er det du faktisk betaler hver måned")
+            st.metric("Skattefradrag", f"{skattefradrag_a:,.0f} kr",
+                     help="22% av dine rentekostnader - kommer som høyere nettoinntekt")
             st.metric("Belastningsgrad", f"{belastning_a:.1f}%",
-                     delta="God" if belastning_a < 30 else "Høy" if belastning_a < 35 else "Kritisk")
-            
+                     delta="God" if belastning_a < 30 else "Høy" if belastning_a < 35 else "Kritisk",
+                     help="Kostnad som % av nettoinntekt - dette ser banken på")
+        with metrics_col2:
+            st.metric("Disponibelt før skattefradrag", f"{disponibel_før_skatt_a:,.0f} kr",
+                     help="Det du har igjen etter å ha betalt boligkostnadene")
+            st.metric("Disponibelt etter skattefradrag", f"{disponibel_etter_skatt_a:,.0f} kr",
+                     help="Det du har igjen når skattefradraget er regnet inn")
+            st.metric("Effektiv belastning", f"{effektiv_belastning_a:.1f}%",
+                     delta="God" if effektiv_belastning_a < 25 else "Høy" if effektiv_belastning_a < 30 else "Kritisk",
+                     help="Langsiktig belastning når skattefradrag er inkludert")
+
         if belastning_a > 35:
             st.error(f"⚠️ Belastningsgrad over 35% - kan være risikabelt!")
         elif belastning_a > 30:
             st.warning(f"⚠️ Belastningsgrad over 30% - vær forsiktig")
         else:
             st.success(f"✅ Belastningsgrad under 30% - bærekraftig")
-    
+
     with col2:
         st.markdown(f"### 👤 {navn_b}")
+
+        # Beregn begge typer belastningsgrad
         belastning_b = beregn_belastningsgrad(kostnad_b, netto_mnd_b)
-        disponibel_b = netto_mnd_b - kostnad_b
-        belastning_uten_fradrag_b = beregn_belastningsgrad(kostnad_før_skattefradrag_b, netto_mnd_b)
-        
+        effektiv_belastning_b = beregn_effektiv_belastning(kostnad_b, netto_mnd_b, skattefradrag_b)
+        disponibel_før_skatt_b = netto_mnd_b - kostnad_b
+        disponibel_etter_skatt_b = netto_mnd_b + skattefradrag_b - kostnad_b
+
         metrics_col1, metrics_col2 = st.columns(2)
         with metrics_col1:
-            st.metric("Kostnad før skattefradrag", f"{kostnad_før_skattefradrag_b:,.0f} kr")
-            st.metric("Skattefradrag", f"{skattefradrag_mnd * (kostnad_b / total_mnd_kostnad):,.0f} kr")
-            st.metric("Månedlig kostnad", f"{kostnad_b:,.0f} kr")
-        with metrics_col2:
-            st.metric("Disponibelt", f"{disponibel_b:,.0f} kr")
-            st.metric("Belastning uten fradrag", f"{belastning_uten_fradrag_b:.1f}%",
-                     delta="God" if belastning_uten_fradrag_b < 30 else "Høy" if belastning_uten_fradrag_b < 35 else "Kritisk")
-
+            st.metric("Månedlig kostnad", f"{kostnad_b:,.0f} kr",
+                     help="Dette er det du faktisk betaler hver måned")
+            st.metric("Skattefradrag", f"{skattefradrag_b:,.0f} kr",
+                     help="22% av dine rentekostnader - kommer som høyere nettoinntekt")
             st.metric("Belastningsgrad", f"{belastning_b:.1f}%",
-                     delta="God" if belastning_b < 30 else "Høy" if belastning_b < 35 else "Kritisk")
-            
+                     delta="God" if belastning_b < 30 else "Høy" if belastning_b < 35 else "Kritisk",
+                     help="Kostnad som % av nettoinntekt - dette ser banken på")
+        with metrics_col2:
+            st.metric("Disponibelt før skattefradrag", f"{disponibel_før_skatt_b:,.0f} kr",
+                     help="Det du har igjen etter å ha betalt boligkostnadene")
+            st.metric("Disponibelt etter skattefradrag", f"{disponibel_etter_skatt_b:,.0f} kr",
+                     help="Det du har igjen når skattefradraget er regnet inn")
+            st.metric("Effektiv belastning", f"{effektiv_belastning_b:.1f}%",
+                     delta="God" if effektiv_belastning_b < 25 else "Høy" if effektiv_belastning_b < 30 else "Kritisk",
+                     help="Langsiktig belastning når skattefradrag er inkludert")
+
         if belastning_b > 35:
             st.error(f"⚠️ Belastningsgrad over 35% - kan være risikabelt!")
         elif belastning_b > 30:
@@ -525,6 +569,20 @@ with tab2:
         else:
             st.success(f"✅ Belastningsgrad under 30% - bærekraftig")
 
+
+       # Viktig informasjon om skattefradrag
+    st.info("""
+        **💡 Viktig om skattefradrag:**
+
+        Skattefradraget (22% av rentekostnader) fungerer IKKE som en reduksjon i månedsbeløpet du betaler til banken.
+        I stedet får du skattefordelen som **høyere nettoinntekt** gjennom:
+        - Justering av skattekortet (lavere trekk hver måned), eller
+        - Ved skatteoppgjøret (penger tilbake årlig)
+
+        Derfor viser vi:
+        - **Belastningsgrad**: Det banken ser på - faktisk kostnad vs nåværende nettoinntekt
+        - **Effektiv belastning**: Langsiktig belastning når du har justert skattekortet
+        """)
 with tab3:
     st.header("Renteprognoser")
     
@@ -696,16 +754,20 @@ with tab3:
         scenario_terminbelop = beregn_terminbelop(laanebelop, scenario_rente, nedbetalingstid)
         scenario_rentekostnad = (laanebelop * (scenario_rente / 100)) / 12
         scenario_skattefradrag = beregn_skattefradrag(scenario_rentekostnad)
-        scenario_total = scenario_terminbelop + felleskostnader - scenario_skattefradrag
-        
+        scenario_total = scenario_terminbelop + felleskostnader  # Faktisk utbetaling
+
         scenario_kostnad_a, scenario_kostnad_b = beregn_fordeling(
             scenario_total, brutto_aar_a, brutto_aar_b, fordeling_type, custom_split
         )
-        
+
+        scenario_skattefradrag_a, scenario_skattefradrag_b = beregn_fordeling(
+            scenario_skattefradrag, brutto_aar_a, brutto_aar_b, fordeling_type, custom_split
+        )
+
         # Beregn endring fra dagens situasjon
         endring_total = scenario_total - total_mnd_kostnad
         endring_prosent = (endring_total / total_mnd_kostnad) * 100 if total_mnd_kostnad > 0 else 0
-        
+
         scenario_data.append({
             'Scenario': scenario_navn,
             'Rente': f"{scenario_rente:.1f}%",
@@ -715,7 +777,9 @@ with tab3:
             f'{navn_a}': scenario_kostnad_a,
             f'{navn_b}': scenario_kostnad_b,
             f'Belastning {navn_a}': beregn_belastningsgrad(scenario_kostnad_a, netto_mnd_a),
-            f'Belastning {navn_b}': beregn_belastningsgrad(scenario_kostnad_b, netto_mnd_b)
+            f'Belastning {navn_b}': beregn_belastningsgrad(scenario_kostnad_b, netto_mnd_b),
+            f'Eff. belastning {navn_a}': beregn_effektiv_belastning(scenario_kostnad_a, netto_mnd_a, scenario_skattefradrag_a),
+            f'Eff. belastning {navn_b}': beregn_effektiv_belastning(scenario_kostnad_b, netto_mnd_b, scenario_skattefradrag_b)
         })
     
     df_scenarios = pd.DataFrame(scenario_data)
@@ -729,8 +793,10 @@ with tab3:
             f'{navn_a}': '{:,.0f} kr',
             f'{navn_b}': '{:,.0f} kr',
             f'Belastning {navn_a}': '{:.1f}%',
-            f'Belastning {navn_b}': '{:.1f}%'
-        }).background_gradient(subset=[f'Belastning {navn_a}', f'Belastning {navn_b}'], 
+            f'Belastning {navn_b}': '{:.1f}%',
+            f'Eff. belastning {navn_a}': '{:.1f}%',
+            f'Eff. belastning {navn_b}': '{:.1f}%'
+        }).background_gradient(subset=[f'Belastning {navn_a}', f'Belastning {navn_b}'],
                                cmap='RdYlGn_r', vmin=20, vmax=40)
         .bar(subset=['Endring'], color=['#d65f5f', '#5fba7d'], align='zero'),
         use_container_width=True
@@ -808,23 +874,29 @@ with tab4:
         stress_terminbelop = beregn_terminbelop(laanebelop, params['rente'], nedbetalingstid)
         stress_rentekostnad = (laanebelop * (params['rente'] / 100)) / 12
         stress_skattefradrag = beregn_skattefradrag(stress_rentekostnad)
-        stress_total = stress_terminbelop + felleskostnader - stress_skattefradrag
-        
+        stress_total = stress_terminbelop + felleskostnader  # Faktisk utbetaling
+
         # Netto inntekter i stress scenario
         stress_netto_a = (params['inntekt_a'] )
-        stress_netto_b = (params['inntekt_b'] ) 
+        stress_netto_b = (params['inntekt_b'] )
         total_netto = stress_netto_a + stress_netto_b
-        
+
+        # Total netto inkludert skattefradrag (langsiktig)
+        total_netto_med_fradrag = total_netto + stress_skattefradrag
+
         # Kan de håndtere kostnadene?
         kan_betale = total_netto >= stress_total
         margin = total_netto - stress_total
-        
+        margin_med_fradrag = total_netto_med_fradrag - stress_total
+
         stress_results.append({
             'Scenario': scenario_navn,
             'Beskrivelse': params['beskrivelse'],
             'Total inntekt': total_netto,
             'Total kostnad': stress_total,
-            'Margin': margin,
+            'Skattefradrag': stress_skattefradrag,
+            'Margin før fradrag': margin,
+            'Margin med fradrag': margin_med_fradrag,
             'Status': '✅ OK' if kan_betale else '❌ KRITISK'
         })
     
@@ -835,9 +907,11 @@ with tab4:
         df_stress.style.format({
             'Total inntekt': '{:,.0f} kr',
             'Total kostnad': '{:,.0f} kr',
-            'Margin': '{:,.0f} kr'
-        }).apply(lambda x: ['background-color: #ffcccc' if v < 0 else '' 
-                           for v in x], subset=['Margin']),
+            'Skattefradrag': '{:,.0f} kr',
+            'Margin før fradrag': '{:,.0f} kr',
+            'Margin med fradrag': '{:,.0f} kr'
+        }).apply(lambda x: ['background-color: #ffcccc' if v < 0 else ''
+                           for v in x], subset=['Margin før fradrag']),
         use_container_width=True,
         hide_index=True
     )
@@ -869,7 +943,7 @@ with tab4:
     st.plotly_chart(fig_stress, use_container_width=True)
     
     # Anbefalinger basert på stress-test
-    kritiske = sum(1 for r in stress_results if r['Margin'] < 0)
+    kritiske = sum(1 for r in stress_results if r['Margin før fradrag'] < 0)
     
     st.subheader("🎯 Anbefalinger")
     
@@ -911,14 +985,17 @@ with tab5:
         st.metric("Terminbeløp", f"{terminbelop:,.0f} kr/mnd")
     
     with col3:
-        st.metric("Skattefradrag", f"{skattefradrag_mnd:,.0f} kr/mnd")
-        st.metric("Netto kostnad", f"{total_mnd_kostnad:,.0f} kr/mnd")
+        st.metric("Skattefradrag", f"{skattefradrag_mnd:,.0f} kr/mnd",
+                 help="22% av rentekostnader - kommer som økt nettoinntekt")
+        st.metric("Total månedskostnad", f"{total_mnd_kostnad:,.0f} kr/mnd",
+                 help="Faktisk månedlig utbetaling til bank og felleskostnader")
     
     with col4:
         avg_belastning = (belastning_a + belastning_b) / 2
         st.metric("Snitt belastning", f"{avg_belastning:.1f}%")
-        total_disponibel = disponibel_a + disponibel_b
-        st.metric("Total disponibel", f"{total_disponibel:,.0f} kr/mnd")
+        total_disponibel = disponibel_etter_skatt_a + disponibel_etter_skatt_b
+        st.metric("Total disponibel", f"{total_disponibel:,.0f} kr/mnd",
+                 help="Totalt disponibelt beløp etter boligkostnader og skattefradrag")
     
     # Kostnadsfordeling pie chart
     st.subheader("💰 Månedlig kostnadsfordeling")
@@ -1427,8 +1504,8 @@ with tab5:
     
     # Lagre scenario
     st.subheader("💾 Lagre scenario")
-    
-    scenario_navn = st.text_input("Gi scenarioet et navn", placeholder="F.eks. 'Leilighet Grünerløkka'")
+
+    scenario_navn = st.text_input("Gi scenarioet et navn", placeholder="F.eks. 'Leilighet Grünerløkka'", key="scenario_navn")
     
     if st.button("Lagre scenario", type="primary"):
         if scenario_navn:
@@ -1935,9 +2012,10 @@ with tab7:
             min_value=1,
             max_value=min(nedbetalingstid, 30),
             value=min(5, nedbetalingstid),
-            help="Når planlegger dere å selge?"
+            help="Når planlegger dere å selge?",
+            key="salgsaar"
         )
-    
+
     with col2:
         verdiendring_prosent = st.number_input(
             "Forventet verdiendring (%)",
@@ -1945,9 +2023,10 @@ with tab7:
             max_value=100.0,
             value=33.3,
             step=5.0,
-            help="Positiv = verdistigning, Negativ = verdifall"
+            help="Positiv = verdistigning, Negativ = verdifall",
+            key="verdiendring_prosent"
         )
-    
+
     with col3:
         salgskostnader_prosent = st.number_input(
             "Salgskostnader (%)",
@@ -1955,7 +2034,8 @@ with tab7:
             max_value=10.0,
             value=2.5,
             step=0.5,
-            help="Megler, markedsføring, etc."
+            help="Megler, markedsføring, etc.",
+            key="salgskostnader_prosent"
         )
     
     # NØYAKTIG BEREGNING MED AMORTISERINGSPLAN
@@ -2526,15 +2606,17 @@ with tab8:  # Eller legg i eksisterende tab
             min_value=1,
             max_value=10,
             value=5,
-            help="Periode for ekstra nedbetaling"
+            help="Periode for ekstra nedbetaling",
+            key="ekstra_nedbetaling_aar"
         )
-        
+
         hvem_betaler_ekstra = st.radio(
             "Hvem betaler ekstra?",
             [navn_a, navn_b, "Begge"],
-            horizontal=True
+            horizontal=True,
+            key="hvem_betaler_ekstra"
         )
-    
+
     with col2:
         if hvem_betaler_ekstra == "Begge":
             ekstra_per_mnd_a = st.number_input(
@@ -2542,14 +2624,16 @@ with tab8:  # Eller legg i eksisterende tab
                 min_value=0,
                 max_value=50000,
                 value=5000,
-                step=1000
+                step=1000,
+                key="ekstra_per_mnd_a_begge"
             )
             ekstra_per_mnd_b = st.number_input(
                 f"Ekstra fra {navn_b} (kr/mnd)",
                 min_value=0,
                 max_value=50000,
                 value=3000,
-                step=1000
+                step=1000,
+                key="ekstra_per_mnd_b_begge"
             )
         elif hvem_betaler_ekstra == navn_a:
             ekstra_per_mnd_a = st.number_input(
@@ -2557,7 +2641,8 @@ with tab8:  # Eller legg i eksisterende tab
                 min_value=0,
                 max_value=50000,
                 value=10000,
-                step=1000
+                step=1000,
+                key="ekstra_per_mnd_a_solo"
             )
             ekstra_per_mnd_b = 0
         else:
@@ -2566,7 +2651,8 @@ with tab8:  # Eller legg i eksisterende tab
                 min_value=0,
                 max_value=50000,
                 value=10000,
-                step=1000
+                step=1000,
+                key="ekstra_per_mnd_b_solo"
             )
             ekstra_per_mnd_a = 0
     
@@ -2687,18 +2773,18 @@ with tab8:  # Eller legg i eksisterende tab
             st.metric(f"Lån fra {navn_a} til {navn_b}", f"{laan_til_b:,.0f} kr")
             
             # Vis tilbakebetalingsplan
-            intern_rente = st.slider("Intern rente på lånet (%)", 0.0, 5.0, 2.0, 0.5)
-            tilbakebetalingstid = st.slider("Tilbakebetalingstid (år)", 1, 10, 5)
-            
+            intern_rente = st.slider("Intern rente på lånet (%)", 0.0, 5.0, 2.0, 0.5, key="intern_rente_a")
+            tilbakebetalingstid = st.slider("Tilbakebetalingstid (år)", 1, 10, 5, key="tilbakebetalingstid_a")
+
             maanedlig_betaling = beregn_terminbelop(laan_til_b, intern_rente, tilbakebetalingstid)
             st.metric(f"Månedlig tilbakebetaling fra {navn_b}", f"{maanedlig_betaling:,.0f} kr")
-            
+
         elif hvem_betaler_ekstra == navn_b:
             laan_til_a = total_ekstra * 0.5
             st.metric(f"Lån fra {navn_b} til {navn_a}", f"{laan_til_a:,.0f} kr")
-            
-            intern_rente = st.slider("Intern rente på lånet (%)", 0.0, 5.0, 2.0, 0.5)
-            tilbakebetalingstid = st.slider("Tilbakebetalingstid (år)", 1, 10, 5)
+
+            intern_rente = st.slider("Intern rente på lånet (%)", 0.0, 5.0, 2.0, 0.5, key="intern_rente_b")
+            tilbakebetalingstid = st.slider("Tilbakebetalingstid (år)", 1, 10, 5, key="tilbakebetalingstid_b")
             
             maanedlig_betaling = beregn_terminbelop(laan_til_a, intern_rente, tilbakebetalingstid)
             st.metric(f"Månedlig tilbakebetaling fra {navn_a}", f"{maanedlig_betaling:,.0f} kr")
@@ -2777,9 +2863,9 @@ with tab8:  # Eller legg i eksisterende tab
         
         # La bruker definere fordeling
         st.markdown("**Definer fordeling av ekstra nedbetaling:**")
-        
-        andel_eierskap = st.slider("% til økt eierandel", 0, 100, 50, 10)
-        andel_kreditt = st.slider("% til kreditt for fremtidige betalinger", 0, 100, 25, 10)
+
+        andel_eierskap = st.slider("% til økt eierandel", 0, 100, 50, 10, key="andel_eierskap")
+        andel_kreditt = st.slider("% til kreditt for fremtidige betalinger", 0, 100, 25, 10, key="andel_kreditt")
         andel_gave = 100 - andel_eierskap - andel_kreditt
         
         st.info(f"Resterende {andel_gave}% regnes som bidrag til felles beste")
