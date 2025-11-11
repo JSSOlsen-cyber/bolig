@@ -312,7 +312,7 @@ with tab1:
             
             if egenkapital_fordeling_type == "Ulik fordeling":
                 egenkapital_a = st.number_input(
-                    f"Egenkapital fra Thale (kr)",
+                    f"Egenkapital fra Person1 (kr)",
                     min_value=0,
                     max_value=egenkapital,
                     value=int(egenkapital * 0.4),
@@ -320,7 +320,7 @@ with tab1:
                     key="egenkapital_a"
                 )
                 egenkapital_b = egenkapital - egenkapital_a
-                st.info(f"Egenkapital fra Jonas: {egenkapital_b:,.0f} kr")
+                st.info(f"Egenkapital fra Person2: {egenkapital_b:,.0f} kr")
             else:
                 egenkapital_a = egenkapital / 2
                 egenkapital_b = egenkapital / 2
@@ -330,7 +330,7 @@ with tab1:
             eierandel_b = (egenkapital_b / boligpris) * 100
             
             st.markdown("**Initiell eierandel (kun fra EK)**")
-            st.caption(f"Thale: {eierandel_a:.1f}% | Jonas: {eierandel_b:.1f}%")
+            st.caption(f"Person1: {eierandel_a:.1f}% | Person2: {eierandel_b:.1f}%")
 
     with col2:
         rente = st.number_input(
@@ -387,7 +387,7 @@ with tab2:
     
     with col1:
         st.markdown("**Person A**")
-        navn_a = st.text_input("Navn", value="Thale", key="navn_a")
+        navn_a = st.text_input("Navn", value="Person1", key="navn_a")
         brutto_aar_a = st.number_input(
             "Netto månedslønn (kr)", 
             min_value=0, 
@@ -407,7 +407,7 @@ with tab2:
     
     with col2:
         st.markdown("**Person B**")
-        navn_b = st.text_input("Navn", value="Jonas", key="navn_b")
+        navn_b = st.text_input("Navn", value="Person2", key="navn_b")
         brutto_aar_b = st.number_input(
             "Netto månedsinntekt (kr)", 
             min_value=0, 
