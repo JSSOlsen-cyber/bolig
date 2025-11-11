@@ -1089,8 +1089,8 @@ with tab5:
             title="Kroner",
             gridcolor=COLORS['light'],
             tickformat=",.0f",
-            tickfont=dict(color=COLORS['text_secondary']),
-            titlefont=dict(color=COLORS['text_secondary'])
+            tickfont=dict(color=COLORS['text_secondary'])
+            #titlefont=dict(color=COLORS['text_secondary'])
         ),
         xaxis=dict(
             gridcolor='rgba(0,0,0,0)',
@@ -1252,8 +1252,8 @@ with tab5:
             title="År",
             gridcolor=COLORS['light'],
             showgrid=True,
-            tickfont=dict(color=COLORS['text_secondary']),
-            titlefont=dict(color=COLORS['text_secondary'])
+            tickfont=dict(color=COLORS['text_secondary'])
+            #titlefont=dict(color=COLORS['text_secondary'])
         ),
         yaxis=dict(
             title="Eierandel (%)",
@@ -1261,8 +1261,8 @@ with tab5:
             gridcolor=COLORS['light'],
             showgrid=True,
             ticksuffix="%",
-            tickfont=dict(color=COLORS['text_secondary']),
-            titlefont=dict(color=COLORS['text_secondary'])
+            tickfont=dict(color=COLORS['text_secondary'])
+            #titlefont=dict(color=COLORS['text_secondary'])
         ),
         height=450,
         hovermode='x unified',
@@ -2468,8 +2468,8 @@ with tab7:
             title="Kroner",
             gridcolor=COLORS['light'],
             tickformat=",.0f",
-            tickfont=dict(color=COLORS['text_secondary']),
-            titlefont=dict(color=COLORS['text_secondary'])
+            tickfont=dict(color=COLORS['text_secondary'])
+            #titlefont=dict(color=COLORS['text_secondary'])
         ),
         xaxis=dict(
             gridcolor='rgba(0,0,0,0)',
